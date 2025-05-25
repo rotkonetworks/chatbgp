@@ -244,31 +244,6 @@ fn to_hex(bytes: &[u8]) -> String {
         .join(" ")
 }
 
-fn from_hex(hex: &str) -> Result<Vec<u8>, String> {
-    let clean: String = hex.chars()
-        .filter(|c| !c.is_whitespace())
-        .collect();
-    
-    if clean.is_empty() {
-        return Err("Empty hex string".to_string());
-    }
-    
-    if clean.len() % 2 != 0 {
-        return Err("Hex string must have even number of characters".to_string());
-    }
-    
-    let mut bytes = Vec::with_capacity(clean.len() / 2);
-    
-    for i in (0..clean.len()).step_by(2) {
-        let byte_str = &clean[i..i + 2];
-        let byte = u8::from_str_radix(byte_str, 16)
-            .map_err(|_| format!("Invalid hex characters at position {}", i))?;
-        bytes.push(byte);
-    }
-    
-    Ok(bytes)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

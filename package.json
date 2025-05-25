@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "scripts": {
     "dev": "cd frontend && npx vite",
-    "build:wasm": "cd wasm && cargo build --target wasm32-unknown-unknown --release && wasm-bindgen target/wasm32-unknown-unknown/release/chatbgp.wasm --out-dir pkg --target web",
+    "build:wasm": "cd wasm && cargo build --target wasm32-unknown-unknown --release && wasm-bindgen target/wasm32-unknown-unknown/release/chatbgp.wasm --out-dir pkg --target web --no-typescript",
     "build": "npm run build:wasm && cd frontend && npx vite build"
   }
 }
