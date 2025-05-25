@@ -2,10 +2,12 @@
 set -e
 
 echo "🚀 Setting up ChatBGP..."
+npm install
 
 # Create symlink to WASM package in frontend
 echo "📦 Creating WASM symlink..."
 cd frontend/src
+npm install
 if [ ! -L "wasm" ]; then
     ln -s ../../wasm/pkg wasm
     echo "✅ Symlink created: frontend/src/wasm -> wasm/pkg"
