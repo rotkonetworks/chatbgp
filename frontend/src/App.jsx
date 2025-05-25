@@ -1,7 +1,12 @@
 import React, { useState, useEffect, useRef, memo, useCallback } from 'react';
 import init, * as BgpWasm from './wasm/chatbgp';
 
-// Memoized terminal line component - only re-renders if its specific line changes
+// Import content JSON files
+import learnContent from './data/learn-content.json';
+import helpContent from './data/help-content.json';
+import universalContent from './data/universal-mode.json';
+
+// Memoized terminal line component
 const TerminalLine = memo(({ line }) => {
   const getColor = () => {
     switch (line.type) {
@@ -13,6 +18,8 @@ const TerminalLine = memo(({ line }) => {
       case 'learn': return 'text-purple-400';
       case 'learn-header': return 'text-purple-500 font-bold';
       case 'learn-code': return 'text-orange-400 font-mono bg-gray-900 px-2 py-1 rounded';
+      case 'universal': return 'text-blue-400';
+      case 'universal-header': return 'text-blue-500 font-bold';
       default: return '';
     }
   };
@@ -20,13 +27,18 @@ const TerminalLine = memo(({ line }) => {
   return <div className={getColor()}>{line.text}</div>;
 });
 
-// Memoized header component - only re-renders when nick/as/subcode change
-const TerminalHeader = memo(({ nickname, asNumber, subcode }) => {
+// Memoized header component
+const TerminalHeader = memo(({ nickname, asNumber, subcode, mode }) => {
   const getNick = useCallback(() => {
     if (nickname) return nickname;
     if (asNumber) return `AS${asNumber}`;
     return `anon${subcode}`;
   }, [nickname, asNumber, subcode]);
+
+  const getModeDisplay = () => {
+    if (mode === 'universal') return 'UNIVERSAL';
+    return subcode === 2 ? 'SHUTDOWN' : 'RESET';
+  };
 
   return (
     <div className="bg-gray-900 px-4 py-2 flex items-center justify-between border-b border-green-900">
@@ -37,7 +49,7 @@ const TerminalHeader = memo(({ nickname, asNumber, subcode }) => {
         {asNumber && <span className="text-gray-600">[AS{asNumber}]</span>}
       </div>
       <div className="text-gray-600">
-        Mode: {subcode === 2 ? 'SHUTDOWN' : 'RESET'}
+        Mode: {getModeDisplay()}
       </div>
     </div>
   );
@@ -48,6 +60,7 @@ export default function ChatBGP() {
   const [nickname, setNickname] = useState('');
   const [asNumber, setAsNumber] = useState('');
   const [subcode, setSubcode] = useState(2);
+  const [mode, setMode] = useState('shutdown'); // 'shutdown' or 'universal'
   const [input, setInput] = useState('');
   const [history, setHistory] = useState([]);
   const [commandHistory, setCommandHistory] = useState([]);
@@ -63,7 +76,7 @@ export default function ChatBGP() {
       setWasmReady(true);
     }).catch(err => {
       console.error('Failed to initialize WASM:', err);
-      // Optionally set an error state here
+      addToHistory({ type: 'error', text: `WASM initialization failed: ${err.message}` });
     });
   }, []);
 
@@ -77,123 +90,70 @@ export default function ChatBGP() {
   // Auto-scroll optimization
   useEffect(() => {
     historyEndRef.current?.scrollIntoView({ behavior: 'instant' });
-  }, [history.length]); // Only depend on array length, not content
+  }, [history.length]);
 
-  // Initialize welcome message only once
-  useEffect(() => {
-    if (wasmReady) {
-      setHistory([
-        { id: 0, type: 'system', text: '═══════════════════════════════════════════════════════' },
-        { id: 1, type: 'system', text: ' CHATBGP - RFC 9003 SHUTDOWN MESSAGE ENCODER/DECODER v1.0' },
-        { id: 2, type: 'system', text: '═══════════════════════════════════════════════════════' },
-        { id: 3, type: 'system', text: '' },
-        { id: 4, type: 'system', text: 'Commands:' },
-        { id: 5, type: 'system', text: '  /nick <n>        - Set nickname (0 to clear)' },
-        { id: 6, type: 'system', text: '  /as <number>     - Set AS number (0 to clear)' },
-        { id: 7, type: 'system', text: '  /mode <2|4>      - Set BGP subcode (2=shutdown, 4=reset)' },
-        { id: 8, type: 'system', text: '  /learn           - Learn about RFC 9003 BGP shutdown messages' },
-        { id: 9, type: 'system', text: '  /clear           - Clear screen' },
-        { id: 10, type: 'system', text: '  /help            - Show this help' },
-        { id: 11, type: 'system', text: '' },
-        { id: 12, type: 'system', text: 'Type a message to encode, or paste hex to decode.' },
-        { id: 13, type: 'system', text: '───────────────────────────────────────────────────────' },
-      ]);
-    }
-  }, [wasmReady]);
-
-  // Memoized addToHistory to prevent re-creation
+  // Memoized addToHistory
   const addToHistory = useCallback((entry) => {
     setHistory(prev => [...prev, { ...entry, id: Date.now() + Math.random() }]);
   }, []);
 
-  const showLearnContent = useCallback(() => {
-    const learnContent = [
-      { type: 'learn-header', text: '═══ RFC 9003: BGP Cease NOTIFICATION Subcode for Shutdown ═══' },
-      { type: 'learn', text: '' },
-      { type: 'learn-header', text: '📚 What is RFC 9003?' },
-      { type: 'learn', text: 'RFC 9003 (published Feb 2021) adds human-readable shutdown messages to BGP.' },
-      { type: 'learn', text: 'Before this, operators had to guess why a BGP session was shut down.' },
-      { type: 'learn', text: '' },
-      { type: 'learn-header', text: '🔧 How BGP Messages Work:' },
-      { type: 'learn', text: '1. All BGP messages start with a 19-byte header:' },
-      { type: 'learn-code', text: '   • Marker: 16 bytes of 0xFF (synchronization)' },
-      { type: 'learn-code', text: '   • Length: 2 bytes (total message size, big-endian)' },
-      { type: 'learn-code', text: '   • Type: 1 byte (1=OPEN, 2=UPDATE, 3=NOTIFICATION, 4=KEEPALIVE)' },
-      { type: 'learn', text: '' },
-      { type: 'learn-header', text: '🚨 NOTIFICATION Messages (Type 3):' },
-      { type: 'learn', text: 'Used to report errors and close BGP connections. Structure:' },
-      { type: 'learn-code', text: '   • Error Code: 1 byte (6 = Cease)' },
-      { type: 'learn-code', text: '   • Subcode: 1 byte (2 = Admin Shutdown, 4 = Admin Reset)' },
-      { type: 'learn-code', text: '   • Data: Variable length (RFC 9003 adds UTF-8 message here!)' },
-      { type: 'learn', text: '' },
-      { type: 'learn-header', text: '💬 RFC 9003 Shutdown Communication:' },
-      { type: 'learn', text: 'The shutdown message is encoded as:' },
-      { type: 'learn-code', text: '   • Length: 1 byte (0-255, size of UTF-8 message)' },
-      { type: 'learn-code', text: '   • Message: UTF-8 encoded text (max 255 bytes)' },
-      { type: 'learn', text: '' },
-      { type: 'learn-header', text: '📐 Complete Message Structure:' },
-      { type: 'learn-code', text: '[Marker:16][Length:2][Type:1][Error:1][Subcode:1][MsgLen:1][UTF8-Message:0-255]' },
-      { type: 'learn', text: 'Total size: 22 bytes minimum (empty message) to 277 bytes maximum' },
-      { type: 'learn', text: '' },
-      { type: 'learn-header', text: '🌍 Real-World Usage:' },
-      { type: 'learn', text: '• "Upgrading to 1.2.3, back in 30min" - Planned maintenance' },
-      { type: 'learn', text: '• "[TICKET-123] Emergency fiber cut repair" - Unplanned outage' },
-      { type: 'learn', text: '• "Moving to new peer AS64512" - Configuration change' },
-      { type: 'learn', text: '' },
-      { type: 'learn-header', text: '💡 Fun Facts:' },
-      { type: 'learn', text: '• UTF-8 support means emojis work! "Maintenance 🔧"' },
-      { type: 'learn', text: '• Cyrillic, Chinese, Arabic all supported' },
-      { type: 'learn', text: '• 255 bytes ≈ 255 ASCII chars, but only ~85 Chinese chars' },
-      { type: 'learn', text: '• Helps network operators worldwide communicate better' },
-      { type: 'learn', text: '' },
-      { type: 'learn-header', text: '⚠️  Why Only Subcodes 2 & 4? (The Hard Truth)' },
-      { type: 'learn', text: 'BGP NOTIFICATION messages are nuclear options - they ALWAYS kill the session.' },
-      { type: 'learn', text: 'This isn\'t a bug, it\'s a feature. Here\'s why:' },
-      { type: 'learn', text: '' },
-      { type: 'learn', text: '1. BGP is paranoid by design. Config mismatch? Dead session. Bad message? Dead.' },
-      { type: 'learn', text: '   Hold timer expired? Dead. Any error? Dead. No exceptions.' },
-      { type: 'learn', text: '' },
-      { type: 'learn', text: '2. "Just send a warning" is how you get routing loops and blackholes.' },
-      { type: 'learn', text: '   The Internet works because BGP fails closed, not open.' },
-      { type: 'learn', text: '' },
-      { type: 'learn', text: '3. RFC 9003 only covers Admin Shutdown/Reset because those are the ONLY cases' },
-      { type: 'learn', text: '   where you\'re intentionally killing a working session. Every other' },
-      { type: 'learn', text: '   NOTIFICATION is BGP saying "something is broken, I\'m out."' },
-      { type: 'learn', text: '' },
-      { type: 'learn-header', text: '📊 All BGP Error Codes (All Fatal):' },
-      { type: 'learn-code', text: '1: Message Header Error - Malformed message, probable attack' },
-      { type: 'learn-code', text: '2: OPEN Message Error - Config mismatch, AS numbers wrong' },
-      { type: 'learn-code', text: '3: UPDATE Message Error - Bad routes, potential hijack' },
-      { type: 'learn-code', text: '4: Hold Timer Expired - Peer is dead or network is' },
-      { type: 'learn-code', text: '5: FSM Error - State machine broken, memory corruption?' },
-      { type: 'learn-code', text: '6: Cease - Voluntary termination (only 2 & 4 get messages)' },
-      { type: 'learn', text: '' },
-      { type: 'learn', text: 'Want to tell your peer their config is wrong without dropping?' },
-      { type: 'learn', text: 'Use email. Or phone. Or literally anything except BGP.' },
-      { type: 'learn', text: '' },
-      { type: 'learn', text: 'BGP\'s job is moving packets, not messages. It speaks in routes and' },
-      { type: 'learn', text: 'silence. When it does speak (NOTIFICATION), someone\'s day is ruined.' },
-      { type: 'learn', text: '' },
-      { type: 'learn', text: 'This is good design. Complexity is where bugs hide, and bugs in BGP' },
-      { type: 'learn', text: 'mean the Internet breaks. Keep it simple, keep it brutal.' },
-      { type: 'learn', text: '' },
-      { type: 'learn-header', text: '🧮 Example Encoding:' },
-      { type: 'learn', text: 'Message: "Test" (4 bytes) with subcode 2:' },
-      { type: 'learn-code', text: 'ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff  [Marker]' },
-      { type: 'learn-code', text: '00 1a                                              [Length: 26]' },
-      { type: 'learn-code', text: '03                                                 [Type: NOTIFICATION]' },
-      { type: 'learn-code', text: '06                                                 [Error: Cease]' },
-      { type: 'learn-code', text: '02                                                 [Subcode: Admin Shutdown]' },
-      { type: 'learn-code', text: '04                                                 [Message Length: 4]' },
-      { type: 'learn-code', text: '54 65 73 74                                        [UTF-8: "Test"]' },
-      { type: 'learn', text: '' },
-      { type: 'learn', text: '═══════════════════════════════════════════════════════════════' },
-    ];
+  // Initialize welcome message
+  useEffect(() => {
+    if (wasmReady) {
+      const welcomeMessages = helpContent.welcome.map((text, index) => ({
+        id: index,
+        type: 'system',
+        text
+      }));
 
-    learnContent.forEach(line => addToHistory(line));
+      const commandMessages = [
+        { type: 'system', text: '' },
+        { type: 'system', text: 'Commands:' },
+        ...helpContent.commands.map(cmd => ({
+          type: 'system',
+          text: `  ${cmd.command.padEnd(15)} - ${cmd.description}`
+        })),
+        { type: 'system', text: '' },
+        { type: 'system', text: helpContent.usage.encoding },
+        { type: 'system', text: '───────────────────────────────────────────────────────' }
+      ];
+
+      setHistory([...welcomeMessages, ...commandMessages]);
+    }
+  }, [wasmReady]);
+
+  // Content display functions
+  const showLearnContent = useCallback(() => {
+    const contentLines = [];
+    
+    // Header
+    contentLines.push({ type: 'learn', text: '' });
+    contentLines.push(learnContent.header);
+    contentLines.push({ type: 'learn', text: '' });
+
+    // Sections
+    learnContent.sections.forEach(section => {
+      contentLines.push({ type: section.type, text: section.title });
+      section.content.forEach(item => {
+        contentLines.push(item);
+      });
+      contentLines.push({ type: 'learn', text: '' });
+    });
+
+    // Footer
+    contentLines.push(learnContent.footer);
+
+    contentLines.forEach(line => addToHistory(line));
   }, [addToHistory]);
 
-  const handleCommand = useCallback(async (cmd) => {
+  const showUniversalHelp = useCallback(() => {
+    universalContent.help.forEach(line => {
+      addToHistory({ type: 'universal', text: line });
+    });
+  }, [addToHistory]);
+
+  // Command handlers
+  const handleShutdownCommand = useCallback(async (cmd) => {
     const parts = cmd.split(' ');
     const command = parts[0].toLowerCase();
 
@@ -234,6 +194,12 @@ export default function ChatBGP() {
         }
         break;
 
+      case '/universal':
+        setMode('universal');
+        addToHistory({ type: 'system', text: '* Switched to universal BGP notification mode' });
+        showUniversalHelp();
+        break;
+
       case '/learn':
         showLearnContent();
         break;
@@ -246,12 +212,10 @@ export default function ChatBGP() {
         const helpMessages = [
           { type: 'system', text: '───────────────────────────────────────────────────────' },
           { type: 'system', text: 'Commands:' },
-          { type: 'system', text: '  /nick <n>        - Set nickname (0 to clear)' },
-          { type: 'system', text: '  /as <number>     - Set AS number (0 to clear)' },
-          { type: 'system', text: '  /mode <2|4>      - Set BGP subcode' },
-          { type: 'system', text: '  /learn           - Learn about RFC 9003' },
-          { type: 'system', text: '  /clear           - Clear screen' },
-          { type: 'system', text: '  /help            - Show this help' },
+          ...helpContent.commands.map(cmd => ({
+            type: 'system',
+            text: `  ${cmd.command.padEnd(15)} - ${cmd.description}`
+          })),
           { type: 'system', text: '' },
           { type: 'system', text: 'Current state:' },
           { type: 'system', text: `  Nick: ${nickname || '(none - anonymous)'} ` },
@@ -266,8 +230,65 @@ export default function ChatBGP() {
       default:
         addToHistory({ type: 'error', text: `Unknown command: ${command}` });
     }
-  }, [nickname, asNumber, subcode, getNick, addToHistory, showLearnContent]);
+  }, [nickname, asNumber, subcode, getNick, addToHistory, showLearnContent, showUniversalHelp]);
 
+  const handleUniversalCommand = useCallback(async (cmd) => {
+    const parts = cmd.split(' ');
+    const command = parts[0].toLowerCase();
+
+    switch (command) {
+      case '/encode':
+        if (parts.length < 3) {
+          addToHistory({ type: 'error', text: 'Usage: /encode <error_code> <subcode> [data_type] [value]' });
+          return;
+        }
+
+        const errorCode = parseInt(parts[1]);
+        const subcodeValue = parseInt(parts[2]);
+        const dataType = parts[3] || '';
+        const dataValue = parts.slice(4).join(' ') || '';
+
+        try {
+          const result = await BgpWasm.create_notification_with_data(
+            errorCode, 
+            subcodeValue, 
+            dataType, 
+            dataValue
+          );
+
+          const errorName = universalContent.error_codes[errorCode]?.name || 'Unknown';
+          const subcodeName = universalContent.error_codes[errorCode]?.subcodes[subcodeValue] || 'Unknown';
+
+          addToHistory({ type: 'output', text: `┌─ BGP NOTIFICATION ─────────────────────────────────┐` });
+          addToHistory({ type: 'output', text: `│ Error: ${errorCode} (${errorName})` });
+          addToHistory({ type: 'output', text: `│ Subcode: ${subcodeValue} (${subcodeName})` });
+          addToHistory({ type: 'hex', text: result.hex });
+          addToHistory({ type: 'output', text: `└─ ${result.total_bytes} bytes total ────────────────────────────┘` });
+        } catch (error) {
+          addToHistory({ type: 'error', text: `Encoding error: ${error.message || error}` });
+        }
+        break;
+
+      case '/shutdown':
+        setMode('shutdown');
+        addToHistory({ type: 'system', text: '* Switched back to shutdown message mode' });
+        break;
+
+      case '/help':
+        showUniversalHelp();
+        break;
+
+      case '/clear':
+        setHistory([]);
+        break;
+
+      // Forward other commands to shutdown handler
+      default:
+        await handleShutdownCommand(cmd);
+    }
+  }, [addToHistory, showUniversalHelp, handleShutdownCommand]);
+
+  // Main input processing
   const processInput = useCallback(async (text) => {
     if (!text.trim()) return;
 
@@ -277,56 +298,74 @@ export default function ChatBGP() {
     addToHistory({ type: 'input', text: `<${getNick()}> ${text}` });
 
     if (text.startsWith('/')) {
-      await handleCommand(text);
+      if (mode === 'universal') {
+        await handleUniversalCommand(text);
+      } else {
+        await handleShutdownCommand(text);
+      }
       return;
     }
 
     try {
-      // Preprocess input to handle various hex formats
       const cleanedText = text.trim();
       const isHex = BgpWasm.is_hex(cleanedText);
 
       if (isHex) {
         addToHistory({ type: 'system', text: '* Decoding BGP notification...' });
-        const result = await BgpWasm.decode_shutdown_message(cleanedText);
-
-        addToHistory({ type: 'output', text: '┌─ DECODED BGP NOTIFICATION ─────────────────────────┐' });
-        addToHistory({ type: 'output', text: `│ Type: ${result.subcode} (${result.subcode_value})` });
-        addToHistory({ type: 'output', text: `│ Message: "${result.message}"` });
-        addToHistory({ type: 'output', text: '└────────────────────────────────────────────────────┘' });
-      } else {
-        const bytes = new TextEncoder().encode(text).length;
-
-        if (bytes <= 255) {
-          addToHistory({ type: 'system', text: `* Encoding message (${bytes}/255 bytes)...` });
-        } else {
-          addToHistory({ type: 'system', text: `* Message too long (${bytes} bytes), splitting into chunks...` });
+        
+        try {
+          // Try universal decoder first
+          const result = await BgpWasm.decode_universal_notification(cleanedText);
+          
+          addToHistory({ type: 'output', text: '┌─ DECODED BGP NOTIFICATION ─────────────────────────┐' });
+          addToHistory({ type: 'output', text: `│ Error: ${result.error_code} (${result.error_name})` });
+          addToHistory({ type: 'output', text: `│ Subcode: ${result.subcode} (${result.subcode_name})` });
+          addToHistory({ type: 'output', text: `│ Data: ${result.data_length} bytes` });
+          if (result.interpretation) {
+            addToHistory({ type: 'output', text: `│ Info: ${result.interpretation}` });
+          }
+          addToHistory({ type: 'output', text: '└────────────────────────────────────────────────────┘' });
+        } catch (universalError) {
+          // Fall back to shutdown decoder
+          try {
+            const result = await BgpWasm.decode_shutdown_message(cleanedText);
+            addToHistory({ type: 'output', text: '┌─ DECODED BGP SHUTDOWN NOTIFICATION ────────────────┐' });
+            addToHistory({ type: 'output', text: `│ Type: ${result.subcode} (${result.subcode_value})` });
+            addToHistory({ type: 'output', text: `│ Message: "${result.message}"` });
+            addToHistory({ type: 'output', text: '└────────────────────────────────────────────────────┘' });
+          } catch (shutdownError) {
+            addToHistory({ type: 'error', text: `Decoding error: ${shutdownError.message || shutdownError}` });
+          }
         }
+      } else {
+        // Encoding mode
+        if (mode === 'universal') {
+          addToHistory({ type: 'error', text: 'In universal mode, use /encode command to create notifications' });
+          return;
+        }
+
+        const bytes = new TextEncoder().encode(text).length;
+        if (bytes > 255) {
+          addToHistory({ type: 'error', text: `Message too long: ${bytes} bytes (max 255)` });
+          return;
+        }
+
+        addToHistory({ type: 'system', text: `* Encoding message (${bytes}/255 bytes)...` });
 
         const request = { message: text, subcode };
         const result = await BgpWasm.encode_shutdown_message(request);
 
         const modeText = subcode === 2 ? 'SHUTDOWN' : 'RESET';
-
-        if (result.hex) {
-          addToHistory({ type: 'output', text: `┌─ BGP ${modeText} NOTIFICATION ────────────────────────┐` });
-          addToHistory({ type: 'hex', text: result.hex });
-          addToHistory({ type: 'output', text: `└─ ${result.total_bytes} bytes total, ${result.message_bytes} bytes message ─────────┘` });
-        } else if (result.chunks) {
-          addToHistory({ type: 'system', text: `* Split into ${result.total_chunks} chunks (original: ${result.original_bytes} bytes)` });
-
-          result.chunks.forEach((chunk, i) => {
-            addToHistory({ type: 'output', text: `┌─ BGP ${modeText} NOTIFICATION [${i + 1}/${result.total_chunks}] ─────────────┐` });
-            addToHistory({ type: 'hex', text: chunk.hex });
-            addToHistory({ type: 'output', text: `└─ ${chunk.total_bytes} bytes total, ${chunk.message_bytes} bytes message ─────────┘` });
-          });
-        }
+        addToHistory({ type: 'output', text: `┌─ BGP ${modeText} NOTIFICATION ────────────────────────┐` });
+        addToHistory({ type: 'hex', text: result.hex });
+        addToHistory({ type: 'output', text: `└─ ${result.total_bytes} bytes total, ${result.message_bytes} bytes message ─────────┘` });
       }
     } catch (error) {
       addToHistory({ type: 'error', text: `ERROR: ${error.message || error}` });
     }
-  }, [getNick, subcode, handleCommand, addToHistory]);
+  }, [getNick, subcode, mode, addToHistory, handleUniversalCommand, handleShutdownCommand]);
 
+  // Keyboard handling
   const handleKeyDown = useCallback((e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
@@ -366,7 +405,7 @@ export default function ChatBGP() {
 
   return (
     <div className="bg-black text-green-400 h-screen flex flex-col font-mono text-sm" onClick={focusInput}>
-      <TerminalHeader nickname={nickname} asNumber={asNumber} subcode={subcode} />
+      <TerminalHeader nickname={nickname} asNumber={asNumber} subcode={subcode} mode={mode} />
 
       <div
         ref={terminalRef}
@@ -388,7 +427,10 @@ export default function ChatBGP() {
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
           className="flex-1 bg-transparent outline-none text-green-400"
-          placeholder="Type message or hex, or /help for commands"
+          placeholder={mode === 'universal' ? 
+            "Type /encode or hex to decode, /help for commands" : 
+            "Type message or hex, or /help for commands"
+          }
           autoFocus
         />
       </div>

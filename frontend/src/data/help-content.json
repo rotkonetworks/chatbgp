@@ -1,0 +1,45 @@
+{
+  "commands": [
+    {
+      "command": "/nick <n>",
+      "description": "Set nickname (0 to clear)"
+    },
+    {
+      "command": "/as <number>",
+      "description": "Set AS number (0 to clear)"
+    },
+    {
+      "command": "/mode <2|4>",
+      "description": "Set BGP subcode (2=shutdown, 4=reset)"
+    },
+    {
+      "command": "/universal",
+      "description": "Switch to universal BGP notification mode"
+    },
+    {
+      "command": "/learn",
+      "description": "Learn about RFC 9003 BGP shutdown messages"
+    },
+    {
+      "command": "/clear",
+      "description": "Clear screen"
+    },
+    {
+      "command": "/help",
+      "description": "Show this help"
+    }
+  ],
+  "welcome": [
+    "═══════════════════════════════════════════════════════",
+    " CHATBGP - RFC 9003 SHUTDOWN MESSAGE ENCODER/DECODER v2.0",
+    "═══════════════════════════════════════════════════════",
+    "",
+    "Type a message to encode, or paste hex to decode.",
+    "───────────────────────────────────────────────────────"
+  ],
+  "usage": {
+    "encoding": "Type a message to encode as BGP shutdown notification",
+    "decoding": "Paste hex bytes to decode BGP notification",
+    "commands": "Commands start with / - type /help for full list"
+  }
+}

@@ -1,0 +1,108 @@
+{
+  "error_codes": {
+    "1": {
+      "name": "Message Header Error",
+      "subcodes": {
+        "1": "Connection Not Synchronized",
+        "2": "Bad Message Length",
+        "3": "Bad Message Type"
+      }
+    },
+    "2": {
+      "name": "OPEN Message Error",
+      "subcodes": {
+        "0": "Unspecific",
+        "1": "Unsupported Version Number",
+        "2": "Bad Peer AS",
+        "3": "Bad BGP Identifier",
+        "4": "Unsupported Optional Parameter",
+        "6": "Unacceptable Hold Time",
+        "7": "Unsupported Capability"
+      }
+    },
+    "3": {
+      "name": "UPDATE Message Error",
+      "subcodes": {
+        "0": "Unspecific",
+        "1": "Malformed Attribute List",
+        "2": "Unrecognized Well-known Attribute",
+        "3": "Missing Well-known Attribute",
+        "4": "Attribute Flags Error",
+        "5": "Attribute Length Error",
+        "6": "Invalid ORIGIN Attribute",
+        "8": "Invalid NEXT_HOP Attribute",
+        "9": "Optional Attribute Error",
+        "10": "Invalid Network Field",
+        "11": "Malformed AS_PATH"
+      }
+    },
+    "4": {
+      "name": "Hold Timer Expired",
+      "subcodes": {
+        "0": "Unspecific"
+      }
+    },
+    "5": {
+      "name": "Finite State Machine Error",
+      "subcodes": {
+        "0": "Unspecified Error",
+        "1": "Receive Unexpected Message in OpenSent State",
+        "2": "Receive Unexpected Message in OpenConfirm State",
+        "3": "Receive Unexpected Message in Established State"
+      }
+    },
+    "6": {
+      "name": "Cease",
+      "subcodes": {
+        "0": "Unspecific",
+        "1": "Maximum Number of Prefixes Reached",
+        "2": "Administrative Shutdown",
+        "3": "Peer De-configured",
+        "4": "Administrative Reset",
+        "5": "Connection Rejected",
+        "6": "Other Configuration Change",
+        "7": "Connection Collision Resolution",
+        "8": "Out of Resources",
+        "9": "Hard Reset"
+      }
+    }
+  },
+  "data_types": {
+    "1": {
+      "2": ["length"],
+      "3": ["type"]
+    },
+    "2": {
+      "1": ["version"]
+    },
+    "3": {
+      "3": ["attribute"]
+    },
+    "5": {
+      "1": ["message_type"],
+      "2": ["message_type"],
+      "3": ["message_type"]
+    },
+    "6": {
+      "2": ["message"],
+      "4": ["message"]
+    }
+  },
+  "help": [
+    "═══ UNIVERSAL BGP NOTIFICATION MODE ═══",
+    "",
+    "In universal mode, you can work with all BGP error codes:",
+    "",
+    "Commands:",
+    "  /encode <error> <sub> [data_type] [value] - Create notification",
+    "  /shutdown                                  - Return to shutdown mode",
+    "",
+    "Examples:",
+    "  /encode 1 2 length 4096        - Bad message length",
+    "  /encode 4 0                    - Hold timer expired",
+    "  /encode 6 2 message Hello      - Admin shutdown with message",
+    "",
+    "You can also paste any BGP notification hex to decode it.",
+    "═══════════════════════════════════════════"
+  ]
+}

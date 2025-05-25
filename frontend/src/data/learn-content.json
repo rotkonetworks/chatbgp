@@ -1,0 +1,300 @@
+{
+  "header": {
+    "type": "learn-header",
+    "text": "═══ RFC 9003: BGP Cease NOTIFICATION Subcode for Shutdown ═══"
+  },
+  "sections": [
+    {
+      "title": "📚 What is RFC 9003?",
+      "type": "learn-header",
+      "content": [
+        {
+          "type": "learn",
+          "text": "RFC 9003 (published Feb 2021) adds human-readable shutdown messages to BGP."
+        },
+        {
+          "type": "learn",
+          "text": "Before this, operators had to guess why a BGP session was shut down."
+        }
+      ]
+    },
+    {
+      "title": "🔧 How BGP Messages Work:",
+      "type": "learn-header",
+      "content": [
+        {
+          "type": "learn",
+          "text": "1. All BGP messages start with a 19-byte header:"
+        },
+        {
+          "type": "learn-code",
+          "text": "   • Marker: 16 bytes of 0xFF (synchronization)"
+        },
+        {
+          "type": "learn-code",
+          "text": "   • Length: 2 bytes (total message size, big-endian)"
+        },
+        {
+          "type": "learn-code",
+          "text": "   • Type: 1 byte (1=OPEN, 2=UPDATE, 3=NOTIFICATION, 4=KEEPALIVE)"
+        }
+      ]
+    },
+    {
+      "title": "🚨 NOTIFICATION Messages (Type 3):",
+      "type": "learn-header",
+      "content": [
+        {
+          "type": "learn",
+          "text": "Used to report errors and close BGP connections. Structure:"
+        },
+        {
+          "type": "learn-code",
+          "text": "   • Error Code: 1 byte (6 = Cease)"
+        },
+        {
+          "type": "learn-code",
+          "text": "   • Subcode: 1 byte (2 = Admin Shutdown, 4 = Admin Reset)"
+        },
+        {
+          "type": "learn-code",
+          "text": "   • Data: Variable length (RFC 9003 adds UTF-8 message here!)"
+        }
+      ]
+    },
+    {
+      "title": "💬 RFC 9003 Shutdown Communication:",
+      "type": "learn-header",
+      "content": [
+        {
+          "type": "learn",
+          "text": "The shutdown message is encoded as:"
+        },
+        {
+          "type": "learn-code",
+          "text": "   • Length: 1 byte (0-255, size of UTF-8 message)"
+        },
+        {
+          "type": "learn-code",
+          "text": "   • Message: UTF-8 encoded text (max 255 bytes)"
+        }
+      ]
+    },
+    {
+      "title": "📐 Complete Message Structure:",
+      "type": "learn-header",
+      "content": [
+        {
+          "type": "learn-code",
+          "text": "[Marker:16][Length:2][Type:1][Error:1][Subcode:1][MsgLen:1][UTF8-Message:0-255]"
+        },
+        {
+          "type": "learn",
+          "text": "Total size: 22 bytes minimum (empty message) to 277 bytes maximum"
+        }
+      ]
+    },
+    {
+      "title": "🌍 Real-World Usage:",
+      "type": "learn-header",
+      "content": [
+        {
+          "type": "learn",
+          "text": "• \"Upgrading to 1.2.3, back in 30min\" - Planned maintenance"
+        },
+        {
+          "type": "learn",
+          "text": "• \"[TICKET-123] Emergency fiber cut repair\" - Unplanned outage"
+        },
+        {
+          "type": "learn",
+          "text": "• \"Moving to new peer AS64512\" - Configuration change"
+        }
+      ]
+    },
+    {
+      "title": "💡 Fun Facts:",
+      "type": "learn-header",
+      "content": [
+        {
+          "type": "learn",
+          "text": "• UTF-8 support means emojis work! \"Maintenance 🔧\""
+        },
+        {
+          "type": "learn",
+          "text": "• Cyrillic, Chinese, Arabic all supported"
+        },
+        {
+          "type": "learn",
+          "text": "• 255 bytes ≈ 255 ASCII chars, but only ~85 Chinese chars"
+        },
+        {
+          "type": "learn",
+          "text": "• Helps network operators worldwide communicate better"
+        }
+      ]
+    },
+    {
+      "title": "⚠️  Why Only Subcodes 2 & 4? (The Hard Truth)",
+      "type": "learn-header",
+      "content": [
+        {
+          "type": "learn",
+          "text": "BGP NOTIFICATION messages are nuclear options - they ALWAYS kill the session."
+        },
+        {
+          "type": "learn",
+          "text": "This isn't a bug, it's a feature. Here's why:"
+        },
+        {
+          "type": "learn",
+          "text": ""
+        },
+        {
+          "type": "learn",
+          "text": "1. BGP is paranoid by design. Config mismatch? Dead session. Bad message? Dead."
+        },
+        {
+          "type": "learn",
+          "text": "   Hold timer expired? Dead. Any error? Dead. No exceptions."
+        },
+        {
+          "type": "learn",
+          "text": ""
+        },
+        {
+          "type": "learn",
+          "text": "2. \"Just send a warning\" is how you get routing loops and blackholes."
+        },
+        {
+          "type": "learn",
+          "text": "   The Internet works because BGP fails closed, not open."
+        },
+        {
+          "type": "learn",
+          "text": ""
+        },
+        {
+          "type": "learn",
+          "text": "3. RFC 9003 only covers Admin Shutdown/Reset because those are the ONLY cases"
+        },
+        {
+          "type": "learn",
+          "text": "   where you're intentionally killing a working session. Every other"
+        },
+        {
+          "type": "learn",
+          "text": "   NOTIFICATION is BGP saying \"something is broken, I'm out.\""
+        }
+      ]
+    },
+    {
+      "title": "📊 All BGP Error Codes (All Fatal):",
+      "type": "learn-header",
+      "content": [
+        {
+          "type": "learn-code",
+          "text": "1: Message Header Error - Malformed message, probable attack"
+        },
+        {
+          "type": "learn-code",
+          "text": "2: OPEN Message Error - Config mismatch, AS numbers wrong"
+        },
+        {
+          "type": "learn-code",
+          "text": "3: UPDATE Message Error - Bad routes, potential hijack"
+        },
+        {
+          "type": "learn-code",
+          "text": "4: Hold Timer Expired - Peer is dead or network is"
+        },
+        {
+          "type": "learn-code",
+          "text": "5: FSM Error - State machine broken, memory corruption?"
+        },
+        {
+          "type": "learn-code",
+          "text": "6: Cease - Voluntary termination (only 2 & 4 get messages)"
+        },
+        {
+          "type": "learn",
+          "text": ""
+        },
+        {
+          "type": "learn",
+          "text": "Want to tell your peer their config is wrong without dropping?"
+        },
+        {
+          "type": "learn",
+          "text": "Use email. Or phone. Or literally anything except BGP."
+        },
+        {
+          "type": "learn",
+          "text": ""
+        },
+        {
+          "type": "learn",
+          "text": "BGP's job is moving packets, not messages. It speaks in routes and"
+        },
+        {
+          "type": "learn",
+          "text": "silence. When it does speak (NOTIFICATION), someone's day is ruined."
+        },
+        {
+          "type": "learn",
+          "text": ""
+        },
+        {
+          "type": "learn",
+          "text": "This is good design. Complexity is where bugs hide, and bugs in BGP"
+        },
+        {
+          "type": "learn",
+          "text": "mean the Internet breaks. Keep it simple, keep it brutal."
+        }
+      ]
+    },
+    {
+      "title": "🧮 Example Encoding:",
+      "type": "learn-header",
+      "content": [
+        {
+          "type": "learn",
+          "text": "Message: \"Test\" (4 bytes) with subcode 2:"
+        },
+        {
+          "type": "learn-code",
+          "text": "ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff  [Marker]"
+        },
+        {
+          "type": "learn-code",
+          "text": "00 1a                                              [Length: 26]"
+        },
+        {
+          "type": "learn-code",
+          "text": "03                                                 [Type: NOTIFICATION]"
+        },
+        {
+          "type": "learn-code",
+          "text": "06                                                 [Error: Cease]"
+        },
+        {
+          "type": "learn-code",
+          "text": "02                                                 [Subcode: Admin Shutdown]"
+        },
+        {
+          "type": "learn-code",
+          "text": "04                                                 [Message Length: 4]"
+        },
+        {
+          "type": "learn-code",
+          "text": "54 65 73 74                                        [UTF-8: \"Test\"]"
+        }
+      ]
+    }
+  ],
+  "footer": {
+    "type": "learn",
+    "text": "═══════════════════════════════════════════════════════════════"
+  }
+}
