@@ -112,9 +112,15 @@ pub fn encode_shutdown_message(request: JsValue) -> Result<JsValue, JsValue> {
 /// Decode BGP notification from hex
 #[wasm_bindgen]
 pub fn decode_shutdown_message(hex_input: &str) -> Result<JsValue, JsValue> {
-    // Parse hex
-    let bytes = from_hex(hex_input)
-        .map_err(|e| JsValue::from_str(&e))?;
+    // Clean the input - remove spaces, colons, dashes
+    let clean: String = hex_input
+        .chars()
+        .filter(|c| !c.is_whitespace() && *c != ':' && *c != '-')
+        .collect();
+    
+    // Convert hex string to bytes
+    let bytes = hex_to_bytes(&clean)
+        .map_err(|e| JsValue::from_str(&e.to_string()))?;
     
     // Validate minimum length
     if bytes.len() < MIN_NOTIFICATION_LEN {
@@ -181,13 +187,40 @@ pub fn decode_shutdown_message(hex_input: &str) -> Result<JsValue, JsValue> {
         .map_err(|e| JsValue::from_str(&format!("Serialization error: {}", e)))
 }
 
-/// Check if input is valid hex
 #[wasm_bindgen]
 pub fn is_hex(input: &str) -> bool {
-    let clean = input.replace(' ', "");
-    !clean.is_empty() && 
-    clean.len() % 2 == 0 && 
+    // Remove all whitespace and common separators
+    let clean: String = input
+        .chars()
+        .filter(|c| !c.is_whitespace() && *c != ':' && *c != '-')
+        .collect();
+    
+    // Check if empty
+    if clean.is_empty() {
+        return false;
+    }
+    
+    // Check if even number of characters
+    if clean.len() % 2 != 0 {
+        return false;
+    }
+    
+    // Check if all characters are valid hex
     clean.chars().all(|c| c.is_ascii_hexdigit())
+}
+
+// Helper function to convert hex string to bytes
+fn hex_to_bytes(hex: &str) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+    // Already cleaned, just convert pairs to bytes
+    let mut bytes = Vec::new();
+    
+    for i in (0..hex.len()).step_by(2) {
+        let byte_str = &hex[i..i+2];
+        let byte = u8::from_str_radix(byte_str, 16)?;
+        bytes.push(byte);
+    }
+    
+    Ok(bytes)
 }
 
 /// Get available subcodes for dropdown

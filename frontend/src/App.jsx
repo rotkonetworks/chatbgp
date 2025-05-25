@@ -282,11 +282,13 @@ export default function ChatBGP() {
     }
 
     try {
-      const isHex = BgpWasm.is_hex(text);
+      // Preprocess input to handle various hex formats
+      const cleanedText = text.trim();
+      const isHex = BgpWasm.is_hex(cleanedText);
 
       if (isHex) {
         addToHistory({ type: 'system', text: '* Decoding BGP notification...' });
-        const result = await BgpWasm.decode_shutdown_message(text);
+        const result = await BgpWasm.decode_shutdown_message(cleanedText);
 
         addToHistory({ type: 'output', text: '┌─ DECODED BGP NOTIFICATION ─────────────────────────┐' });
         addToHistory({ type: 'output', text: `│ Type: ${result.subcode} (${result.subcode_value})` });
